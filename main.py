@@ -5,17 +5,14 @@ from model.actor import CelestialActor
 from model.critic import CentralizedCritic
 
 def train_active_orchestration():
-    # 1. Initialize Environment
-    env = PhysicsEngine()
+    # Initialize Environment
+    engine = PhysicsEngine()
     
     # 2. Initialize Neural Networks
     gnn = PhysicsGNN()
     
-    # Heterogeneous Actors (One for each unique mass)
-    actor_star = CelestialActor()
-    actor_planet = CelestialActor()
-    actor_moon = CelestialActor()
-    actors = [actor_star, actor_planet, actor_moon]
+    # Actors for each of the bodies
+    actors = [CelestialActor() for _ in range(3)]
     
     # Centralized Critic
     critic = CentralizedCritic()
@@ -24,32 +21,31 @@ def train_active_orchestration():
     
     epochs = 1000
     for epoch in range(epochs):
-        graph_state = env.reset()
+        graph_0 = engine.reset()
         done = False
         
         while not done:
-            # --- EXECUTION PHASE (Decentralized) ---
             with torch.no_grad():
-                # 1. GNN processes the universe into 3 embeddings
-                embeddings = gnn(graph_state['nodes'], graph_state['edges'])
+                h = gnn(graph_0["nodes"], graph_0["edges"])
                 
-                # 2. Each Actor looks ONLY at its own embedding to pick a thrust
-                actions = []
+                actions = torch.zeros((3,3))
                 for i, actor in enumerate(actors):
-                    mean, std = actor(embeddings[i])
-                    # TODO: Sample action from Normal distribution(mean, std)
-                    # actions.append(sampled_thrust)
+                    mean, std = actor(h[i])
+
+                    a_i = torch.normal(mean, std)
+                    actions[i] = a_i
             
-            # 3. Step the environment
-            next_graph_state, reward, done, info = env.step(actions)
+            graph_1, reward, done, info = engine.step(actions)
             
             # --- TRAINING PHASE (Centralized - Usually done in batches via PPO) ---
             # TODO: Calculate Advantage using the Centralized Critic: A = Reward + gamma * V(next_s) - V(s)
+            h_next = gnn(graph_1["nodes"], graph_1["edges"])
+            
             # TODO: Update Actor networks using PPO Clipped Objective
             # TODO: Update Critic network using Mean Squared Error loss against the actual returns
             # TODO: Update GNN gradients alongside the Actors/Critic
             
-            graph_state = next_graph_state
+            graph_0 = graph_1
             
         print(f"Epoch {epoch} complete. Reward: {reward}")
 

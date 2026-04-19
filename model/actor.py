@@ -4,8 +4,7 @@ import torch.nn as nn
 class CelestialActor(nn.Module):
     def __init__(self, embed_dim=64, action_dim=3):
         """
-        The decentralized 'Pilot' brain. 
-        Because masses are different, we instantiate 3 of these (Star, Planet, Moon).
+        RL Actor that each body instantiates
         """
         super(CelestialActor, self).__init__()
         
@@ -21,12 +20,12 @@ class CelestialActor(nn.Module):
         self.mean_layer = nn.Linear(64, action_dim)
         self.log_std_layer = nn.Parameter(torch.zeros(1, action_dim))
 
-    def forward(self, body_embedding):
+    def forward(self, h):
         """
         Takes ONLY its own embedding from the GNN.
         Returns the thrust probability distribution.
         """
-        x = self.net(body_embedding)
+        x = self.net(h)
         action_mean = torch.tanh(self.mean_layer(x)) # Tanh bounds thrust between -1 and 1
         action_std = torch.exp(self.log_std_layer)
         return action_mean, action_std

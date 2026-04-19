@@ -4,7 +4,7 @@ import torch.nn as nn
 class CentralizedCritic(nn.Module):
     def __init__(self, embed_dim=64):
         """
-        The 'God-view' Judge used ONLY during training (CTDE).
+        Centralized critic used during training that sees the embedings of all three actors
         """
         super(CentralizedCritic, self).__init__()
         
