@@ -76,9 +76,10 @@ class PhysicsEngine:
         return a_g, j
     def _sim_step(self, a_t):
         """
-        The core physics engine. Uses the 4th-order Hermite scheme and adaptive 
-        micro-steps (controlled by mu) to advance the simulation by macro_dt.
-        agent_thrusts: Shape (3, 3), the constant acceleration applied by the agents.
+        Computes next state of the system after agent actions using the 4th-order Hermite scheme
+        The simulation is stepped up to dT time forward in dt step-size time-steps
+        
+        a_t: [3,3]  - Accelerations applied by the agents to each body respectively
         """
         
         K = self.dT // self.dt
@@ -98,6 +99,10 @@ class PhysicsEngine:
             self.v += v_t
 
     def _check_collision(self):
+        """
+        Checks whether a collition between any two of the bodies has occured
+        """
+
         x_10 , x_20 = (self.x - self.x[:,[1,2,0]]), (self.x - self.x[:,[2,0,1]])
         x_10_norm, x_20_norm = (torch.sqrt(torch.sum(x_10 * x_10, dim=0)),
             torch.sqrt(torch.sum(x_20 * x_20, dim=0)))
