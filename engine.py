@@ -3,31 +3,40 @@ import torch
 G = 9.8
 
 class PhysicsEngine:
-    def __init__(self, target_orbit, masses, 
-        macro_dt=1.0, micro_dt = .01, 
+    def __init__(self, target_orbit, m, 
+        dT=1.0, dt = .01, 
         initial_x = None, initial_v= None,
         max_fuel=10, radii=torch.tensor([1,1,1])):
         """
         Initializes the simulator.
-        target_orbit_params: Collection of points and velocities in the orbit.
-        macro_dt: The Agent Macro-step duration (Delta T).
-        micro_dt: The Simulator Micro-step duration (Delta t)
+
+        target_orbit: (X, V) where N is the number of samples from the target orbit
+            -> X: [N, 3, 3]     - Points in the target orbit
+            -> V: [N, 3, 3]     - Velocities at every sample point of the target orbit (Ensures)
+        m: [3]  - Masses of the three bodies
+        dT: Agent action step size - time agent thrust will be applied for
+        dt: Simulator integrator step-size - smaller step-size increases simulation accuracy
+        intial_x: [3, 3]  - Initial positions for the bodies
+        intial_v: [3,3]  - Initial velocities for the bodies
+        max_fuel: maximum amount of fuel desired per action
+        radii: Radii of the thee bodies
         """
-        self.dT = macro_dt
-        self.dt = micro_dt
+        self.dT = dT
+        self.dt = dt
         self.target_orbit = target_orbit
         self.max_fuel = max_fuel
-        self.w_1, self.w_2, self.w_3 = .5, .3, .2
+        # Weights for each of the components in the reward function
+        self.w1_x, self.w1_v, self.w2, self.w3 = .4, .1, .3, .2
         
         self.x = (initial_x if initial_x is not None 
             else torch.rand((3,3), dtype=torch.float64))
         self.v = (initial_v if initial_v is not None
             else torch.rand((3,3), dtype=torch.float64))
         
-        self.m = masses
-
-        self.m_10 = masses[1,2,0]
-        self.m_20 = masses[2,0,1]
+        self.m = m
+        # Order permuations of the mass array for easy access later
+        self.m_10 = m[1,2,0]
+        self.m_20 = m[2,0,1]
 
         self.radii = radii
 
@@ -52,16 +61,17 @@ class PhysicsEngine:
         x_10, x_20 = (x - x[:,[1,2,0]]), (x - x[:,[2,0,1]])
         v_10, v_20 = (v - v[:,[1,2,0]]), (v - v[:,[2,0,1]])
 
-        x_10_norm, x_20_norm = torch.sqrt(torch.sum(x_10 * x_10, dim=0)), torch.sqrt(torch.sum(x_20 * x_20, dim=0))
+        x_10_norm, x_20_norm = (torch.sqrt(torch.sum(x_10 * x_10, dim=0)),
+            torch.sqrt(torch.sum(x_20 * x_20, dim=0)))
         
-        a_g = G * ((x_10 * (1 / torch.pow(x_10_norm, 3)) * self.m_10)
-                + (x_20 * (1 / torch.pow(x_20_norm, 3)) * self.m_20))
-        j = G * (((v_10 * (1 / torch.pow(x_10_norm, 3))) - 
-                    (x_10 * (torch.sum(v_10 * x_10, dim=0)))
-                    * (1 / torch.pow(x_10_norm, 5))) * self.m_10 +
-                ((v_10 * (1 / torch.pow(x_10_norm, 3))) - 
-                    (x_10 * (torch.sum(v_10 * x_10, dim=0)))
-                    * (1 / torch.pow(x_10_norm, 5))) * self.m_10)
+        a_g = G * (((1 / torch.pow(x_10_norm.view(-1, 1), 3)) * (self.m_10.view(-1,1) * x_10))
+                + ((1 / torch.pow(x_20_norm.view(-1,1), 3)) * (self.m_20.view(-1,1) * x_20)))
+        j = G * ((((1 / torch.pow(x_10_norm.view(-1,1), 3)) * v_10) - 
+                    (1 / torch.pow(x_10_norm.view(-1,1), 5))) * (self.m_10.view(-1,1)
+                    * ((torch.sum(v_10 * x_10, dim=0)) * x_10)) +
+                (((1 / torch.pow(x_10_norm.view(-1,1), 3)) * v_10) - 
+                    (1 / torch.pow(x_10_norm.view(-1,1), 5))) * (self.m_10.view(-1,1)
+                    * ((torch.sum(v_10 * x_10, dim=0) * x_10))))
         
         return a_g, j
     def _sim_step(self, a_t):
@@ -100,15 +110,22 @@ class PhysicsEngine:
     def step(self, a_t):
         """
         Executes one MARL Macro-step.
-        actions: Continuous thrust vectors [Delta vx, Delta vy, Delta vz] for each body.
+
+        a_t: [3, 3]  - Acceleration vectors to be applied to each of the bodies
         """
         self._sim_step(a_t)
         
-        R_orbit = None
+        X_o, V_o = self.target_orbit
+        X_o, V_o = torch.flatten(X_o, -2), torch.flatten(V_o, -2)
+        x_flat, v_flat = torch.flatten(self.x), torch.flatten(self.v)
+        x_dist = torch.cdist(x_flat, X_o)
+        k = torch.argmin(x_dist)
+        
+        R_orbit = -(self.w1_x * x_dist[k]**2 + self.w1_v * (v_flat @ V_o[k]))
         R_fuel = torch.log(torch.sum(a_t * a_t) / self.max_fuel)
         R_survive = -100 if self._check_collision else .1
         
-        reward = self.w_1 * R_orbit + self.w_2 * R_fuel + self.w_3 * R_survive
+        reward = R_orbit + self.w2 * R_fuel + self.w3 * R_survive
         done = R_survive < 0
         
         return self._get_graph_state(), reward, done, {}
