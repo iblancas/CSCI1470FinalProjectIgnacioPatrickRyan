@@ -97,8 +97,16 @@ def train_active_orchestration(engine, gnn, actors, critic, optimizer,
             for b_i in range(0, B, batch_size):
                 b_nodes = old_data["nodes"][b_i: b_i + batch_size]
                 b_edges = old_data["edges"][b_i: b_i + batch_size]
+                b_actions = old_data["actions"][b_i: b_i + batch_size]
 
                 cur_h = gnn(b_nodes, b_edges)
+
+                cur_log_prob = 0
+                for i, actor in enumerate(actors):
+                    mean, std = actor(cur_h[:,i])
+                    dist = Normal(mean, std)
+
+                    cur_log_prob += dist.log_prob(b_actions[:,i]).sum(dim=-1)
 
         print(f"Epoch {epoch} complete. Reward: {reward}")
 
