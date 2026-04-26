@@ -87,6 +87,7 @@ def train_active_orchestration(engine, gnn, actors, critic, optimizer,
         last_gae_lam = 0
 
         for i in range(B):
+            t = B - 1 - i
             if i == 0:
                 with torch.no_grad():
                     value_1 = critic(torch.flatten(
@@ -94,23 +95,23 @@ def train_active_orchestration(engine, gnn, actors, critic, optimizer,
                             graph_0["edges"].unsqueeze(0)),
                         start_dim=-2)).squeeze(-1)
             else:
-                value_1 = old_data["values"][B - i]
-            delta = old_data['rewards'][B - 1 - i] + GAMMA * value_1 * old_data["is_done"][B - 1 - i] - old_data['values'][B - 1 - i]
-            advantages = last_gae_lam = delta + GAMMA * GAE_LAMBDA * old_data["is_done"][B - 1 - i] * last_gae_lam
+                value_1 = old_data["values"][t + 1]
+            delta = old_data['rewards'][t] + GAMMA * value_1 * old_data["is_done"][t] - old_data['values'][t]
+            last_gae_lam = delta + GAMMA * GAE_LAMBDA * old_data["is_done"][t] * last_gae_lam
+            advantages[t] = last_gae_lam
 
-            returns.insert(0, advantages + old_data["values"][B - 1 - i])
-        print(returns)
+            returns.insert(0, last_gae_lam + old_data["values"][t])
         returns = torch.tensor(returns).flatten()
 
         # Normalize advantages
-        advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
+        advantages = (advantages - advantages.mean()) / (advantages.std(unbiased=False) + 1e-8)
         advantages = advantages.flatten()
+        print(advantages.shape)
 
         # Iterate policy changes over rollout data
-        print(old_data["nodes"])
-        old_data["nodes"] = torch.tensor(old_data["nodes"])
-        old_data["edges"] = torch.tensor(old_data["edges"])
-        old_data["actions"] = torch.tensor(old_data["actions"])
+        old_data["nodes"] = torch.stack(old_data["nodes"])
+        old_data["edges"] = torch.stack(old_data["edges"])
+        old_data["actions"] = torch.stack(old_data["actions"])
         old_data["log_probs"] = torch.tensor(old_data["log_probs"])
         old_data["rewards"] = torch.tensor(old_data["rewards"])
         old_data["values"] = torch.tensor(old_data["values"])
@@ -121,12 +122,13 @@ def train_active_orchestration(engine, gnn, actors, critic, optimizer,
             idx = torch.randperm(B)
             # Mini batches on the old data
             for b_i in range(0, B, batch_size):
-                b_nodes = old_data["nodes"][b_i: b_i + batch_size]
-                b_edges = old_data["edges"][b_i: b_i + batch_size]
-                b_actions = old_data["actions"][b_i: b_i + batch_size]
-                b_log_probs = old_data["log_probs"][b_i: b_i + batch_size]
-                b_advantages = advantages[b_i:, b_i + batch_size]
-                b_returns = returns[b_i:, b_i + batch_size]
+                print(b_i)
+                b_nodes = old_data["nodes"][idx[b_i: min(b_i + batch_size, B)]]
+                b_edges = old_data["edges"][idx[b_i: min(b_i + batch_size, B)]]
+                b_actions = old_data["actions"][idx[b_i: min(b_i + batch_size, B)]]
+                b_log_probs = old_data["log_probs"][idx[b_i: min(b_i + batch_size, B)]]
+                b_advantages = advantages[idx[b_i: min(b_i + batch_size, B)]]
+                b_returns = returns[idx[b_i: min(b_i + batch_size, B)]]
 
 
                 h = gnn(b_nodes, b_edges)
@@ -134,14 +136,14 @@ def train_active_orchestration(engine, gnn, actors, critic, optimizer,
                 log_probs = 0
                 entropies = []
                 for i, actor in enumerate(actors):
-                    mean, std = actor(h[:,i])
+                    mean, std = actor(h[:,i,:])
                     dist = Normal(mean, std)
 
                     log_probs += dist.log_prob(b_actions[:,i]).sum(dim=-1)
                     entropies.append(dist.entropy().sum(dim=-1))
                 
                 entropy = torch.stack(entropies, dim=1).sum(dim=-1).mean()
-                values = critic(h).squeeze(-1)
+                values = critic(torch.flatten(h, start_dim=-2)).squeeze(-1)
 
                 ratios = torch.exp(log_probs - b_log_probs)
 
@@ -161,4 +163,4 @@ def train_active_orchestration(engine, gnn, actors, critic, optimizer,
         print(f"Epoch {epoch} complete. Reward: {reward}")
 
 if __name__ == "__main__":
-    train_active_orchestration(engine, gnn, actors, critic, optimizer, epochs=1)
+    train_active_orchestration(engine, gnn, actors, critic, optimizer, epochs=1, old_data_size=10)

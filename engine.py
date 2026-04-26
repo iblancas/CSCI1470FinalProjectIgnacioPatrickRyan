@@ -30,7 +30,7 @@ class PhysicsEngine:
         self.w1_x, self.w1_v, self.w2, self.w3 = .4, .1, .3, .2
         
         self.x = (initial_x if initial_x is not None 
-            else torch.rand((3,3), dtype=torch.float64))
+            else 10 * torch.rand((3,3), dtype=torch.float64))
         self.v = (initial_v if initial_v is not None
             else torch.rand((3,3), dtype=torch.float64))
         
@@ -46,7 +46,7 @@ class PhysicsEngine:
         Resets the universe to a random, slightly unstable initial configuration.
         Returns the initial graph state (nodes and edges).
         """
-        self.x = torch.rand((3,3), dtype=torch.float64)
+        self.x = 10 * torch.rand((3,3), dtype=torch.float64)
         self.v = torch.rand((3,3), dtype=torch.float64)
         
         return self._get_graph_state()
@@ -139,7 +139,7 @@ class PhysicsEngine:
         
         R_orbit = -(self.w1_x * x_dist[k]**2 + self.w1_v * (v_flat @ V_o[k]))
         R_fuel = torch.log(torch.sum(a_t * a_t) / self.max_fuel)
-        R_survive = -100 if self._check_collision else .1
+        R_survive = -100 if self._check_collision() else .1
         
         reward = R_orbit + self.w2 * R_fuel + self.w3 * R_survive
         done = R_survive < 0
