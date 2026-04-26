@@ -80,9 +80,9 @@ class PhysicsEngine:
         j = G * ((((1 / torch.pow(x_10_norm.view(-1,1), 3)) * v_10) - 
                     (1 / torch.pow(x_10_norm.view(-1,1), 5))) * (self.m_10.view(-1,1)
                     * ((torch.sum(v_10 * x_10, dim=0)) * x_10)) +
-                (((1 / torch.pow(x_10_norm.view(-1,1), 3)) * v_10) - 
-                    (1 / torch.pow(x_10_norm.view(-1,1), 5))) * (self.m_10.view(-1,1)
-                    * ((torch.sum(v_10 * x_10, dim=0) * x_10))))
+                (((1 / torch.pow(x_20_norm.view(-1,1), 3)) * v_20) - 
+                    (1 / torch.pow(x_20_norm.view(-1,1), 5))) * (self.m_20.view(-1,1)
+                    * ((torch.sum(v_20 * x_20, dim=0) * x_20))))
         
         return a_g, j
     def _sim_step(self, a_t):
@@ -132,10 +132,10 @@ class PhysicsEngine:
         self._sim_step(a_t)
         
         X_o, V_o = self.target_orbit
-        X_o, V_o = torch.flatten(X_o, -2), torch.flatten(V_o, -2)
+        X_o, V_o = torch.flatten(X_o, start_dim=-2), torch.flatten(V_o, start_dim=-2)
         x_flat, v_flat = torch.flatten(self.x), torch.flatten(self.v)
-        x_dist = torch.cdist(x_flat, X_o)
-        k = torch.argmin(x_dist)
+        x_dist = torch.cdist(x_flat.unsqueeze(0), X_o, p=2).squeeze(0)
+        k = torch.argmin(x_dist).item()
         
         R_orbit = -(self.w1_x * x_dist[k]**2 + self.w1_v * (v_flat @ V_o[k]))
         R_fuel = torch.log(torch.sum(a_t * a_t) / self.max_fuel)

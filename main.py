@@ -13,7 +13,10 @@ PPO_CLIP = .001
 C1 = 1
 C2 = 1
 
-engine = PhysicsEngine((torch.ones((10, 3, 3)), torch.ones((10, 3, 3))), torch.tensor([1, 1, 1]), 1, .0001)
+engine = PhysicsEngine(
+    (torch.ones((10, 3, 3), dtype=torch.float64),
+     torch.ones((10, 3, 3), dtype=torch.float64)),
+     torch.tensor([1, 1, 1]), 1, .0001)
 gnn = PhysicsGNN()
 actors = [CelestialActor() for _ in range(3)]
 critic = CentralizedCritic()
@@ -45,8 +48,10 @@ def train_active_orchestration(engine, gnn, actors, critic, optimizer,
         }
         
         for i in range(old_data_size):
+            print(i)
             with torch.no_grad():
-                h = gnn(graph_0["nodes"].unsqueeze(0), graph_0["edges"].unsqueeze(0))
+                h = gnn(graph_0["nodes"].unsqueeze(0),
+                    graph_0["edges"].unsqueeze(0))
                 
                 actions = torch.zeros((3,3))
                 log_prob = 0
@@ -84,13 +89,17 @@ def train_active_orchestration(engine, gnn, actors, critic, optimizer,
         for i in range(B):
             if i == 0:
                 with torch.no_grad():
-                    value_1 = critic(gnn(graph_0["nodes"], graph_0["edges"]))
+                    value_1 = critic(torch.flatten(
+                        gnn(graph_0["nodes"].unsqueeze(0),
+                            graph_0["edges"].unsqueeze(0)),
+                        start_dim=-2)).squeeze(-1)
             else:
                 value_1 = old_data["values"][B - i]
-            delta = old_data['rewards'][B - 1 - i] + GAMMA * value_1 * old_data["is_done"] - old_data['values'][B - 1 - i]
-            advantages = last_gae_lam = delta + GAMMA * GAE_LAMBDA * old_data["is_done"] * last_gae_lam
+            delta = old_data['rewards'][B - 1 - i] + GAMMA * value_1 * old_data["is_done"][B - 1 - i] - old_data['values'][B - 1 - i]
+            advantages = last_gae_lam = delta + GAMMA * GAE_LAMBDA * old_data["is_done"][B - 1 - i] * last_gae_lam
 
             returns.insert(0, advantages + old_data["values"][B - 1 - i])
+        print(returns)
         returns = torch.tensor(returns).flatten()
 
         # Normalize advantages
@@ -98,12 +107,15 @@ def train_active_orchestration(engine, gnn, actors, critic, optimizer,
         advantages = advantages.flatten()
 
         # Iterate policy changes over rollout data
+        print(old_data["nodes"])
         old_data["nodes"] = torch.tensor(old_data["nodes"])
         old_data["edges"] = torch.tensor(old_data["edges"])
         old_data["actions"] = torch.tensor(old_data["actions"])
         old_data["log_probs"] = torch.tensor(old_data["log_probs"])
         old_data["rewards"] = torch.tensor(old_data["rewards"])
         old_data["values"] = torch.tensor(old_data["values"])
+
+        print("-"*10 + "Rollout data computed" + "-"*10)
 
         for e in range(k_epochs):
             idx = torch.randperm(B)
