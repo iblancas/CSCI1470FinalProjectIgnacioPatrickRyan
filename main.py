@@ -13,7 +13,7 @@ PPO_CLIP = .001
 C1 = 1
 C2 = 1
 
-engine = PhysicsEngine()
+engine = PhysicsEngine((torch.ones((10, 3, 3)), torch.ones((10, 3, 3))), torch.tensor([1, 1, 1]), 1, .0001)
 gnn = PhysicsGNN()
 actors = [CelestialActor() for _ in range(3)]
 critic = CentralizedCritic()
@@ -46,15 +46,16 @@ def train_active_orchestration(engine, gnn, actors, critic, optimizer,
         
         for i in range(old_data_size):
             with torch.no_grad():
-                h = gnn(graph_0["nodes"], graph_0["edges"])
+                h = gnn(graph_0["nodes"].unsqueeze(0), graph_0["edges"].unsqueeze(0))
                 
                 actions = torch.zeros((3,3))
                 log_prob = 0
                 for i, actor in enumerate(actors):
-                    mean, std = actor(h[i])
+                    mean, std = actor(h[:,i,:])
                     distrib = Normal(mean, std)
 
                     a_i = distrib.sample()
+                    print(a_i.shape)
                     actions[i] = a_i
                     log_prob += distrib.log_prob(a_i).sum(dim=-1)
                 value = critic(h).unsqueeze(-1)
@@ -149,4 +150,4 @@ def train_active_orchestration(engine, gnn, actors, critic, optimizer,
         print(f"Epoch {epoch} complete. Reward: {reward}")
 
 if __name__ == "__main__":
-    train_active_orchestration(engine, gnn, actors, critic, epochs=100)
+    train_active_orchestration(engine, gnn, actors, critic, optimizer, epochs=1)

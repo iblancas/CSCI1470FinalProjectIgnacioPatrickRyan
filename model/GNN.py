@@ -17,7 +17,7 @@ class PhysicsGNN(nn.Module):
             nn.Linear(hidden_dim, msg_dim),
         )
         self.node_mlp = nn.Sequential(
-            nn.Sequential(node_in_dim + msg_dim, hidden_dim),
+            nn.Linear(node_in_dim + msg_dim, hidden_dim),
             nn.ReLU(),
             nn.Linear(hidden_dim, embed_dim),
         )
@@ -38,10 +38,10 @@ class PhysicsGNN(nn.Module):
         h_from = nodes.unsqueeze(2).expand(B, 3, 3, -1)
         h_to = nodes.unsqueeze(1).expand(B, 3, 3, -1)
 
-        messages = self.message_mlp(torch.cat((h_from, h_to, edges), dim=-1))
+        messages = self.message_mlp(torch.cat((h_from, h_to, edges), dim=-1).float())
 
         mask = torch.eye(3).bool().unsqueeze(0).unsqueeze(-1)
         masked_messages = messages.masked_fill(mask, 0.0)
         m_summed = torch.sum(masked_messages, dim=2)
 
-        return self.node_mlp(torch.cat(nodes, m_summed, dim=-1))
+        return self.node_mlp(torch.cat((nodes, m_summed), dim=-1).float())

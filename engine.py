@@ -35,8 +35,8 @@ class PhysicsEngine:
         
         self.m = m
         # Order permuations of the mass array for easy access later
-        self.m_10 = m[1,2,0]
-        self.m_20 = m[2,0,1]
+        self.m_10 = m[[1,2,0]]
+        self.m_20 = m[[2,0,1]]
 
         self.radii = radii
 
@@ -45,7 +45,8 @@ class PhysicsEngine:
         Resets the universe to a random, slightly unstable initial configuration.
         Returns the initial graph state (nodes and edges).
         """
-        # TODO: Initialize self.positions, self.velocities, self.masses
+        self.x = torch.rand((3,3), dtype=torch.float64)
+        self.v = torch.rand((3,3), dtype=torch.float64)
         
         return self._get_graph_state()
 
@@ -54,8 +55,17 @@ class PhysicsEngine:
         Converts raw physics arrays into PyTorch tensors for the GNN.
         Returns node_features (pos, vel, mass) and edge_features (relative distances).
         """
-        # TODO: Construct and return the graph dictionary or PyTorch Geometric Data object
-        pass
+        
+        edges = torch.zeros((3,3,4))
+        for i in range(3):
+            for j in range(3):
+                r = self.x[j] - self.x[i]
+                edges[i,j] = torch.cat((r, torch.tensor([torch.norm(r, p=2)])), dim=-1)
+
+        return {
+            "nodes": torch.cat((self.x, self.v, torch.unsqueeze(self.m, dim=-1)), dim=-1),
+            "edges": edges
+        }
 
     def _compute_derivs(self, x, v):
         x_10, x_20 = (x - x[:,[1,2,0]]), (x - x[:,[2,0,1]])
