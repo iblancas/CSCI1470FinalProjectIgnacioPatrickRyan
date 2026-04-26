@@ -1,4 +1,6 @@
+import itertools
 import torch
+import torch.nn.functional as F
 from engine import PhysicsEngine
 from model.GNN import PhysicsGNN
 from model.actor import CelestialActor
@@ -7,13 +9,24 @@ from torch.distributions import Normal
 
 GAMMA=.2
 GAE_LAMBDA=.3
+PPO_CLIP = .001
+C1 = 1
+C2 = 1
 
 engine = PhysicsEngine()
 gnn = PhysicsGNN()
 actors = [CelestialActor() for _ in range(3)]
 critic = CentralizedCritic()
 
-optimizer = torch.optim.Adam()
+params = itertools.chain(
+    gnn.parameters(),
+    actors[0].parameters(),
+    actors[1].parameters(),
+    actors[2].parameters(),
+    critic.parameters()
+)
+
+optimizer = torch.optim.Adam(params, lr=3e-4)
 
 def train_active_orchestration(engine, gnn, actors, critic, optimizer,
     epochs=15, k_epochs=15, batch_size=64, old_data_size=1000):
@@ -78,10 +91,11 @@ def train_active_orchestration(engine, gnn, actors, critic, optimizer,
             advantages = last_gae_lam = delta + GAMMA * GAE_LAMBDA * old_data["is_done"] * last_gae_lam
 
             returns.insert(0, advantages + old_data["values"][B - 1 - i])
-        returns = torch.tensor(returns)
+        returns = torch.tensor(returns).flatten()
 
         # Normalize advantages
         advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
+        advantages = advantages.flatten()
 
         # Iterate policy changes over rollout data
         old_data["nodes"] = torch.tensor(old_data["nodes"])
@@ -98,15 +112,39 @@ def train_active_orchestration(engine, gnn, actors, critic, optimizer,
                 b_nodes = old_data["nodes"][b_i: b_i + batch_size]
                 b_edges = old_data["edges"][b_i: b_i + batch_size]
                 b_actions = old_data["actions"][b_i: b_i + batch_size]
+                b_log_probs = old_data["log_probs"][b_i: b_i + batch_size]
+                b_advantages = advantages[b_i:, b_i + batch_size]
+                b_returns = returns[b_i:, b_i + batch_size]
 
-                cur_h = gnn(b_nodes, b_edges)
 
-                cur_log_prob = 0
+                h = gnn(b_nodes, b_edges)
+
+                log_probs = 0
+                entropies = []
                 for i, actor in enumerate(actors):
-                    mean, std = actor(cur_h[:,i])
+                    mean, std = actor(h[:,i])
                     dist = Normal(mean, std)
 
-                    cur_log_prob += dist.log_prob(b_actions[:,i]).sum(dim=-1)
+                    log_probs += dist.log_prob(b_actions[:,i]).sum(dim=-1)
+                    entropies.append(dist.entropy().sum(dim=-1))
+                
+                entropy = torch.stack(entropies, dim=1).sum(dim=-1).mean()
+                values = critic(h).squeeze(-1)
+
+                ratios = torch.exp(log_probs - b_log_probs)
+
+                surr1 = ratios * b_advantages
+                surr2 = torch.clamp(ratios, 1.0 - PPO_CLIP, 1.0 + PPO_CLIP) * b_advantages
+                actor_loss = -torch.min(surr1, surr2).mean()
+
+                critic_loss = F.mse_loss(values, b_returns)
+
+                total_loss = actor_loss + (C1 * critic_loss) + (C2 * entropy)
+
+                optimizer.zero_grad()
+                total_loss.backward()
+                torch.nn.utils.clip_grad_norm_(params, max_norm=.5)
+                optimizer.step()
 
         print(f"Epoch {epoch} complete. Reward: {reward}")
 
