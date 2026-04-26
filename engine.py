@@ -1,4 +1,5 @@
 import torch
+import numpy as np
 
 G = 9.8
 
@@ -92,16 +93,16 @@ class PhysicsEngine:
         a_t: [3,3]  - Accelerations applied by the agents to each body respectively
         """
         
-        K = self.dT // self.dt
+        K = int(self.dT // self.dt)
 
         for _ in range(K):
-            a_g_0, j_0 = self._compute_derivs(self, self.x, self.v)
+            a_g_0, j_0 = self._compute_derivs(self.x, self.v)
             a_0 = a_g_0 + a_t
 
             x_p = self.x + self.v * self.dt + (1 / 2) * a_0 * (self.dt**2) + (1 / 6) * j_0 * (self.dt**3)
             v_p = self.v + a_0 * self.dt + (1 / 2) * j_0 * (self.dt**2)
 
-            a_g_p, j_p = self._compute_derivs(self, x_p, v_p)
+            a_g_p, j_p = self._compute_derivs(x_p, v_p)
             a_p = a_g_p + a_t
 
             v_t = (1 / 2) * (a_0 + a_p) * self.dt + (1 / 12) * (j_0 - j_p) * (self.dt**2)

@@ -55,10 +55,9 @@ def train_active_orchestration(engine, gnn, actors, critic, optimizer,
                     distrib = Normal(mean, std)
 
                     a_i = distrib.sample()
-                    print(a_i.shape)
                     actions[i] = a_i
                     log_prob += distrib.log_prob(a_i).sum(dim=-1)
-                value = critic(h).unsqueeze(-1)
+                value = critic(torch.flatten(h, start_dim=-2)).squeeze(-1)
             graph_1, reward, done, info = engine.step(actions)
             
             old_data["nodes"].append(graph_0["nodes"])
