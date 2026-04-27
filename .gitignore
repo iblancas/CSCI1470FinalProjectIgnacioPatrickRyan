@@ -1,1 +1,6 @@
 reflection
+__pycache__/
+*.pyc
+artifacts/
+figures/
+deleted/

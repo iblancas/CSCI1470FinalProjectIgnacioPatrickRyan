@@ -2,12 +2,12 @@ import torch
 import torch.nn as nn
 
 class PhysicsGNN(nn.Module):
-    def __init__(self, node_in_dim=7, edge_in_dim=4, hidden_dim=64, msg_dim=16, embed_dim=64):
+    def __init__(self, node_in_dim=7, edge_in_dim=3, hidden_dim=64, msg_dim=16, embed_dim=64):
         """
         Permutation-invariant Graph Neural Network.
         
-        node_in_dim: 3(pos) + 3(vel) + 1(mass) = 7
-        edge_in_dim: 3(rel_pos) + 1(distance) = 4
+        node_in_dim: 2(pos) + 2(vel) + 1(mass) + 2(phase sin/cos) = 7
+        edge_in_dim: 2(rel_pos) + 1(distance) = 3
         """
         super(PhysicsGNN, self).__init__()
         
@@ -40,7 +40,7 @@ class PhysicsGNN(nn.Module):
 
         messages = self.message_mlp(torch.cat((h_from, h_to, edges), dim=-1).float())
 
-        mask = torch.eye(3).bool().unsqueeze(0).unsqueeze(-1)
+        mask = torch.eye(3, device=messages.device, dtype=torch.bool).unsqueeze(0).unsqueeze(-1)
         masked_messages = messages.masked_fill(mask, 0.0)
         m_summed = torch.sum(masked_messages, dim=2)
 

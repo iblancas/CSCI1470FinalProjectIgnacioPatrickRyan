@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 
 class CelestialActor(nn.Module):
-    def __init__(self, embed_dim=64, action_dim=3):
+    def __init__(self, embed_dim=64, action_dim=2):
         """
         RL Actor that each body instantiates
         """
