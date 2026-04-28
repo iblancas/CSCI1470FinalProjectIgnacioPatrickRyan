@@ -14,12 +14,20 @@ if [[ -n "${SLURM_SUBMIT_DIR:-}" ]]; then
 fi
 mkdir -p logs
 
-PIPE_TAG="${PIPE_TAG:?PIPE_TAG is required (set by queue script)}"
-PIPE_DIR="$PWD/artifacts/pipelines/$PIPE_TAG"
+PIPE_TAG_VALUE="${PIPE_TAG:-}"
+PIPE_DIR=""
+if [[ -n "$PIPE_TAG_VALUE" ]]; then
+  PIPE_DIR="$PWD/artifacts/pipelines/$PIPE_TAG_VALUE"
+fi
 
-if [[ ! -d "$PIPE_DIR" ]]; then
-  echo "ERROR: missing pipeline directory: $PIPE_DIR"
-  exit 2
+LATEST_CKPT_PATH=$(ls -dt "$PWD"/artifacts/*/checkpoint_best.pt 2>/dev/null | head -n1 || true)
+
+if [[ -n "$PIPE_TAG_VALUE" && ( -z "$PIPE_DIR" || ! -d "$PIPE_DIR" ) ]]; then
+  echo "WARNING: pipeline dir not found for PIPE_TAG=$PIPE_TAG_VALUE; falling back to the newest checkpoint under artifacts/"
+fi
+
+if [[ -z "$PIPE_TAG_VALUE" ]]; then
+  echo "INFO: PIPE_TAG not provided; falling back to the newest checkpoint under artifacts/"
 fi
 
 VENV_DIR="${VENV_DIR:-$PWD/.venv_csci1470_smoke}"
@@ -36,12 +44,14 @@ which python
 python --version
 nvidia-smi || true
 
-if [[ -f "$PIPE_DIR/checkpoint_best_path.txt" ]]; then
+if [[ -n "$PIPE_DIR" && -f "$PIPE_DIR/checkpoint_best_path.txt" ]]; then
   CKPT_PATH=$(cat "$PIPE_DIR/checkpoint_best_path.txt")
 else
-  RUN_NAME="ppo_long_${PIPE_TAG}"
-  RUN_DIR=$(ls -dt "$PWD"/artifacts/${RUN_NAME}_* | head -n1)
-  CKPT_PATH="$RUN_DIR/checkpoint_best.pt"
+  if [[ -z "$LATEST_CKPT_PATH" ]]; then
+    echo "ERROR: no checkpoint_best.pt found under $PWD/artifacts/"
+    exit 2
+  fi
+  CKPT_PATH="$LATEST_CKPT_PATH"
 fi
 
 if [[ ! -f "$CKPT_PATH" ]]; then
@@ -49,7 +59,7 @@ if [[ ! -f "$CKPT_PATH" ]]; then
   exit 3
 fi
 
-if [[ -f "$PIPE_DIR/train_run_dir.txt" ]]; then
+if [[ -n "$PIPE_DIR" && -f "$PIPE_DIR/train_run_dir.txt" ]]; then
   RUN_DIR=$(cat "$PIPE_DIR/train_run_dir.txt")
 else
   RUN_DIR="$(dirname "$CKPT_PATH")"
@@ -59,7 +69,7 @@ OUTDIR="$RUN_DIR/inference_best_gif"
 mkdir -p "$OUTDIR"
 
 echo "=== RUN INFERENCE + SETUP GIFS + BEST GIF ==="
-echo "PIPE_TAG=$PIPE_TAG"
+echo "PIPE_TAG=${PIPE_TAG_VALUE:-<inferred>}"
 echo "checkpoint=$CKPT_PATH"
 echo "outdir=$OUTDIR"
 
@@ -74,6 +84,8 @@ python run_inference_best_gif.py \
   --device auto \
   --outdir "$OUTDIR"
 
-echo "$OUTDIR" > "$PIPE_DIR/inference_outdir.txt"
+if [[ -n "$PIPE_DIR" ]]; then
+  echo "$OUTDIR" > "$PIPE_DIR/inference_outdir.txt"
+fi
 
 echo "end_time=$(date)"
