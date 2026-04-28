@@ -30,6 +30,12 @@ class EnvConfig:
     init_radius_min: float = 0.15
     init_radius_max: float = 1.30
     init_speed_scale: float = 0.35
+    fixed_init_positions: Optional[
+        tuple[tuple[float, float], tuple[float, float], tuple[float, float]]
+    ] = None
+    fixed_init_velocities: Optional[
+        tuple[tuple[float, float], tuple[float, float], tuple[float, float]]
+    ] = None
 
     reference_period: float = 6.32591398
     reference_samples: int = 900
