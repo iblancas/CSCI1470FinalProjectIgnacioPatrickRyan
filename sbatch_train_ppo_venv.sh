@@ -62,6 +62,8 @@ MINIBATCH_SIZE="${MINIBATCH_SIZE:-256}"
 EVAL_EVERY="${EVAL_EVERY:-6}"
 EVAL_EPISODES="${EVAL_EPISODES:-16}"
 SEED="${SEED:-7}"
+VEC_ENV="${VEC_ENV:-subproc}"
+MP_START_METHOD="${MP_START_METHOD:-spawn}"
 
 python train_ppo_figure8.py \
   --updates "$UPDATES" \
@@ -72,6 +74,8 @@ python train_ppo_figure8.py \
   --eval-every "$EVAL_EVERY" \
   --eval-episodes "$EVAL_EPISODES" \
   --seed "$SEED" \
+  --vec-env "$VEC_ENV" \
+  --mp-start-method "$MP_START_METHOD" \
   --device auto \
   --run-name ppo_figure8
 
