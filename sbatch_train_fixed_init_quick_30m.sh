@@ -49,6 +49,15 @@ MINIBATCH_SIZE="${MINIBATCH_SIZE:-128}"
 EVAL_EVERY="${EVAL_EVERY:-10}"
 EVAL_EPISODES="${EVAL_EPISODES:-8}"
 SEED="${SEED:-4301}"
+FIXED_INIT_PROFILE="${FIXED_INIT_PROFILE:-weird}"
+FIXED_INIT_POSITIONS="${FIXED_INIT_POSITIONS:-}"
+FIXED_INIT_VELOCITIES="${FIXED_INIT_VELOCITIES:-}"
+REWARD_SCALE="${REWARD_SCALE:-800.0}"
+REWARD_CLIP="${REWARD_CLIP:-20.0}"
+OBS_CLIP="${OBS_CLIP:-10.0}"
+MAX_ACTION_NORM="${MAX_ACTION_NORM:-0.22}"
+ENT_COEF="${ENT_COEF:-0.0015}"
+W_FUEL="${W_FUEL:-0.03}"
 
 python train_fixed_init_quick.py \
   --updates "$UPDATES" \
@@ -59,6 +68,15 @@ python train_fixed_init_quick.py \
   --eval-every "$EVAL_EVERY" \
   --eval-episodes "$EVAL_EPISODES" \
   --seed "$SEED" \
+  --fixed-init-profile "$FIXED_INIT_PROFILE" \
+  --fixed-init-positions "$FIXED_INIT_POSITIONS" \
+  --fixed-init-velocities "$FIXED_INIT_VELOCITIES" \
+  --reward-scale "$REWARD_SCALE" \
+  --reward-clip "$REWARD_CLIP" \
+  --obs-clip "$OBS_CLIP" \
+  --max-action-norm "$MAX_ACTION_NORM" \
+  --ent-coef "$ENT_COEF" \
+  --w-fuel "$W_FUEL" \
   --run-name "$RUN_NAME" \
   --save-dir artifacts \
   --device auto

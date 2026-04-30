@@ -64,6 +64,15 @@ EVAL_EPISODES="${EVAL_EPISODES:-16}"
 SEED="${SEED:-7}"
 VEC_ENV="${VEC_ENV:-subproc}"
 MP_START_METHOD="${MP_START_METHOD:-spawn}"
+FIXED_INIT_PROFILE="${FIXED_INIT_PROFILE:-none}"
+FIXED_INIT_POSITIONS="${FIXED_INIT_POSITIONS:-}"
+FIXED_INIT_VELOCITIES="${FIXED_INIT_VELOCITIES:-}"
+REWARD_SCALE="${REWARD_SCALE:-10000.0}"
+REWARD_CLIP="${REWARD_CLIP:-20.0}"
+OBS_CLIP="${OBS_CLIP:-10.0}"
+MAX_ACTION_NORM="${MAX_ACTION_NORM:-0.30}"
+ENT_COEF="${ENT_COEF:-0.005}"
+W_FUEL="${W_FUEL:-0.03}"
 
 python train_ppo_figure8.py \
   --updates "$UPDATES" \
@@ -76,6 +85,15 @@ python train_ppo_figure8.py \
   --seed "$SEED" \
   --vec-env "$VEC_ENV" \
   --mp-start-method "$MP_START_METHOD" \
+  --fixed-init-profile "$FIXED_INIT_PROFILE" \
+  --fixed-init-positions "$FIXED_INIT_POSITIONS" \
+  --fixed-init-velocities "$FIXED_INIT_VELOCITIES" \
+  --reward-scale "$REWARD_SCALE" \
+  --reward-clip "$REWARD_CLIP" \
+  --obs-clip "$OBS_CLIP" \
+  --max-action-norm "$MAX_ACTION_NORM" \
+  --ent-coef "$ENT_COEF" \
+  --w-fuel "$W_FUEL" \
   --device auto \
   --run-name ppo_figure8
 

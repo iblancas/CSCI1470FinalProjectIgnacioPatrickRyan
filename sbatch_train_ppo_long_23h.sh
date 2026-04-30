@@ -53,6 +53,13 @@ EVAL_EPISODES="${EVAL_EPISODES:-20}"
 SEED="${SEED:-7}"
 VEC_ENV="${VEC_ENV:-subproc}"
 MP_START_METHOD="${MP_START_METHOD:-spawn}"
+FIXED_INIT_PROFILE="${FIXED_INIT_PROFILE:-none}"
+FIXED_INIT_POSITIONS="${FIXED_INIT_POSITIONS:-}"
+FIXED_INIT_VELOCITIES="${FIXED_INIT_VELOCITIES:-}"
+REWARD_SCALE="${REWARD_SCALE:-10000.0}"
+REWARD_CLIP="${REWARD_CLIP:-20.0}"
+OBS_CLIP="${OBS_CLIP:-10.0}"
+MAX_ACTION_NORM="${MAX_ACTION_NORM:-0.30}"
 
 # PPO hyperparameters.
 LR="${LR:-3e-4}"
@@ -81,6 +88,13 @@ python train_ppo_figure8.py \
   --seed "$SEED" \
   --vec-env "$VEC_ENV" \
   --mp-start-method "$MP_START_METHOD" \
+  --fixed-init-profile "$FIXED_INIT_PROFILE" \
+  --fixed-init-positions "$FIXED_INIT_POSITIONS" \
+  --fixed-init-velocities "$FIXED_INIT_VELOCITIES" \
+  --reward-scale "$REWARD_SCALE" \
+  --reward-clip "$REWARD_CLIP" \
+  --obs-clip "$OBS_CLIP" \
+  --max-action-norm "$MAX_ACTION_NORM" \
   --lr "$LR" \
   --gamma "$GAMMA" \
   --gae-lambda "$GAE_LAMBDA" \
