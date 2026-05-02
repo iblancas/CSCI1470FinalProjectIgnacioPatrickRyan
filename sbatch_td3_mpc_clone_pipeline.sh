@@ -10,9 +10,14 @@
 
 set -euo pipefail
 
-# Always run relative to this script's directory, regardless of where sbatch was submitted from.
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd "$ROOT_DIR"
+# Under Slurm, this points to the directory where `sbatch ...` was invoked.
+# Fallback to script directory for non-Slurm/manual execution.
+if [[ -n "${SLURM_SUBMIT_DIR:-}" ]]; then
+  cd "$SLURM_SUBMIT_DIR"
+else
+  ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  cd "$ROOT_DIR"
+fi
 mkdir -p logs
 
 PIPE_TAG="${PIPE_TAG:-td3_mpcclone_$(date +%Y%m%d_%H%M%S)}"
