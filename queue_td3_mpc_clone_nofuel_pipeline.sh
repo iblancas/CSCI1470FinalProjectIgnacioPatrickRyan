@@ -6,7 +6,7 @@ cd "$ROOT_DIR"
 mkdir -p logs
 
 PIPE_TAG="${PIPE_TAG:-td3_mpcclone_nofuel_$(date +%Y%m%d_%H%M%S)}"
-PARTITION="${PARTITION:-debug}"
+PARTITION="${PARTITION:-tier3}"
 TIME_LIMIT="${TIME_LIMIT:-12:00:00}"
 CPUS_PER_TASK="${CPUS_PER_TASK:-8}"
 MEM_GB="${MEM_GB:-40G}"
